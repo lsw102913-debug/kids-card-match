@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/card_item.dart';
 import 'models/game_data.dart';
+import 'services/tts_service.dart';
 import 'widgets/confetti_overlay.dart';
 import 'widgets/game_card_widget.dart';
 import 'widgets/victory_dialog.dart';
@@ -23,6 +24,7 @@ class GameScreenState extends State<GameScreen> {
   int _matchedPairs = 0;
 
   final ConfettiController _confettiController = ConfettiController();
+  final TtsService _ttsService = TtsService();
 
   // Public getters for testing
   List<CardItem> get cards => _cards;
@@ -35,12 +37,14 @@ class GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
+    _ttsService.init();
     startNewGame();
   }
 
   @override
   void dispose() {
     _confettiController.dispose();
+    _ttsService.stop();
     super.dispose();
   }
 
@@ -90,13 +94,19 @@ class GameScreenState extends State<GameScreen> {
           _isProcessing = false;
         });
 
-        // Spectacular celebration burst with praise banner
-        _confettiController.blast(message: '우와! ${card.name} 짝을 찾았어요! 🎉');
+        // 1) Read card name aloud cheerfully via TTS!
+        _ttsService.speakCardMatch(card.name);
+
+        // 2) Spectacular celebration burst with praise banner
+        _confettiController.blast(message: '우와! ${card.name}! 🎉');
 
         // Check victory
         if (_matchedPairs == _currentDifficulty.pairCount) {
           Future.delayed(const Duration(milliseconds: 650), () {
-            if (mounted) _showVictoryDialog();
+            if (mounted) {
+              _ttsService.speakVictory();
+              _showVictoryDialog();
+            }
           });
         }
       } else {
@@ -192,11 +202,11 @@ class GameScreenState extends State<GameScreen> {
             children: [
               // Landscape Sleek Top Bar
               _buildLandscapeTopBar(),
-              // Main Card Grid maximized in landscape
+              // Main Card Grid maximized in landscape with ZERO clipping
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-                  child: _buildCardGrid(),
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+                  child: _buildAdaptiveCardGrid(),
                 ),
               ),
             ],
@@ -208,14 +218,14 @@ class GameScreenState extends State<GameScreen> {
 
   Widget _buildLandscapeTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -234,15 +244,15 @@ class GameScreenState extends State<GameScreen> {
                       child: ChoiceChip(
                         label: Text('${theme.icon} ${theme.title}'),
                         labelStyle: TextStyle(
-                          fontSize: 13,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
                           color: isSelected ? Colors.white : const Color(0xFF455A64),
                         ),
                         selected: isSelected,
                         selectedColor: const Color(0xFFFF80AB),
                         backgroundColor: const Color(0xFFF5F7FA),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         side: BorderSide(
                           color: isSelected ? const Color(0xFFFF80AB) : Colors.transparent,
                         ),
@@ -257,12 +267,12 @@ class GameScreenState extends State<GameScreen> {
                     avatar: const Text('🎮'),
                     label: Text(_currentDifficulty.title),
                     labelStyle: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF0277BD),
                     ),
                     backgroundColor: const Color(0xFFE1F5FE),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                     onPressed: _openLevelPicker,
                   ),
                 ],
@@ -272,15 +282,15 @@ class GameScreenState extends State<GameScreen> {
           const SizedBox(width: 8),
           // Status Pills (Moves & Matches)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: const Color(0xFFFFF3E0),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '🎯 시도: $_moves',
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFE65100),
               ),
@@ -288,24 +298,24 @@ class GameScreenState extends State<GameScreen> {
           ),
           const SizedBox(width: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: const Color(0xFFFCE4EC),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               '⭐ 짝: $_matchedPairs / ${_currentDifficulty.pairCount}',
               style: const TextStyle(
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFFC2185B),
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 4),
           // Restart button
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 26, color: Color(0xFFFF4081)),
+            icon: const Icon(Icons.refresh_rounded, size: 24, color: Color(0xFFFF4081)),
             tooltip: '새 게임 시작',
             visualDensity: VisualDensity.compact,
             onPressed: () => startNewGame(),
@@ -315,36 +325,66 @@ class GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildCardGrid() {
-    final crossCount = _currentDifficulty.crossAxisCount;
+  /// Adaptive Card Grid that GUARANTEES 100% of cards fit without ANY scrolling or clipping!
+  Widget _buildAdaptiveCardGrid() {
+    final cols = _currentDifficulty.crossAxisCount;
+    final rows = _currentDifficulty.rowCount;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final availableWidth = constraints.maxWidth;
-        final availableHeight = constraints.maxHeight;
-        final rowCount = (_cards.length / crossCount).ceil();
+        final availW = constraints.maxWidth;
+        final availH = constraints.maxHeight;
 
-        const spacing = 10.0;
-        final itemWidth = (availableWidth - (crossCount - 1) * spacing) / crossCount;
-        final itemHeight = (availableHeight - (rowCount - 1) * spacing) / rowCount;
-        final aspectRatio = (itemWidth / itemHeight).clamp(0.7, 1.4);
+        // Dynamic spacing based on card density so dense cards have compact gaps
+        final spacing = cols >= 8 ? 6.0 : (cols >= 6 ? 8.0 : 10.0);
 
-        return GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _cards.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossCount,
-            crossAxisSpacing: spacing,
-            mainAxisSpacing: spacing,
-            childAspectRatio: aspectRatio,
+        final totalSpacingH = (cols - 1) * spacing;
+        final totalSpacingV = (rows - 1) * spacing;
+
+        final rawCardW = (availW - totalSpacingH) / cols;
+        final rawCardH = (availH - totalSpacingV) / rows;
+
+        // Ideal playing card aspect ratio (width / height) is between 0.65 and 0.95
+        // If rawCardW is too wide compared to rawCardH (cards would be too fat),
+        // we constrain the container width and center it horizontally!
+        double targetCardW = rawCardW;
+        double targetCardH = rawCardH;
+
+        const maxAspect = 1.05; // Never wider than square
+        const minAspect = 0.55; // Never narrower than 0.55
+
+        if (targetCardW / targetCardH > maxAspect) {
+          targetCardW = targetCardH * maxAspect;
+        } else if (targetCardW / targetCardH < minAspect) {
+          targetCardH = targetCardW / minAspect;
+        }
+
+        final gridWidth = (targetCardW * cols) + totalSpacingH;
+        final gridHeight = (targetCardH * rows) + totalSpacingV;
+        final childAspect = targetCardW / targetCardH;
+
+        return Center(
+          child: SizedBox(
+            width: gridWidth.clamp(0.0, availW),
+            height: gridHeight.clamp(0.0, availH),
+            child: GridView.builder(
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _cards.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: cols,
+                crossAxisSpacing: spacing,
+                mainAxisSpacing: spacing,
+                childAspectRatio: childAspect,
+              ),
+              itemBuilder: (context, index) {
+                return GameCardWidget(
+                  key: ValueKey('card_${_cards[index].id}'),
+                  card: _cards[index],
+                  onTap: () => onCardTapped(index),
+                );
+              },
+            ),
           ),
-          itemBuilder: (context, index) {
-            return GameCardWidget(
-              key: ValueKey('card_${_cards[index].id}'),
-              card: _cards[index],
-              onTap: () => onCardTapped(index),
-            );
-          },
         );
       },
     );

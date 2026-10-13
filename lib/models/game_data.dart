@@ -17,11 +17,11 @@ class GameThemeInfo {
 }
 
 enum Difficulty {
-  easy,   // 4 cards (4x1 or 2x2)
+  easy,   // 4 cards (4x1)
   medium, // 6 cards (3x2)
-  hard,   // 12 cards (4x3)
-  expert, // 16 cards (4x4)
-  master, // 20 cards (5x4)
+  hard,   // 12 cards (6x2)
+  expert, // 16 cards (8x2)
+  master, // 20 cards (10x2)
 }
 
 extension DifficultyExt on Difficulty {
@@ -57,19 +57,31 @@ extension DifficultyExt on Difficulty {
 
   int get pairCount => cardCount ~/ 2;
 
-  // Optimized for Landscape screens
+  // Optimized for Landscape: max 2 rows so cards never get clipped on any screen
   int get crossAxisCount {
     switch (this) {
       case Difficulty.easy:
-        return 4; // 4x1 (Large wide layout)
+        return 4; // 4x1
       case Difficulty.medium:
         return 3; // 3x2
       case Difficulty.hard:
-        return 4; // 4x3
+        return 6; // 6x2
       case Difficulty.expert:
-        return 4; // 4x4
+        return 8; // 8x2
       case Difficulty.master:
-        return 5; // 5x4
+        return 10; // 10x2
+    }
+  }
+
+  int get rowCount {
+    switch (this) {
+      case Difficulty.easy:
+        return 1;
+      case Difficulty.medium:
+      case Difficulty.hard:
+      case Difficulty.expert:
+      case Difficulty.master:
+        return 2;
     }
   }
 }
