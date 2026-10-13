@@ -26,7 +26,7 @@ class _GameCardWidgetState extends State<GameCardWidget>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 380),
+      duration: const Duration(milliseconds: 360),
     );
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOutBack),
@@ -64,7 +64,7 @@ class _GameCardWidgetState extends State<GameCardWidget>
 
         return Transform(
           transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.002) // 3D perspective
+            ..setEntry(3, 2, 0.002) // 3D depth
             ..rotateY(angle),
           alignment: Alignment.center,
           child: GestureDetector(
@@ -82,23 +82,24 @@ class _GameCardWidgetState extends State<GameCardWidget>
     );
   }
 
-  // Card Front (Showing Animal/Fruit/Vehicle)
+  // Card Front (Showing Animal / Fruit / Dinosaur / Vehicle with MAXIMIZED illustration)
   Widget _buildFrontSide() {
     return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
       decoration: BoxDecoration(
         color: widget.card.cardColor,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: widget.card.isMatched ? Colors.green.shade400 : Colors.white,
+          color: widget.card.isMatched ? Colors.green.shade500 : Colors.white,
           width: 3.5,
         ),
         boxShadow: [
           BoxShadow(
             color: widget.card.isMatched
-                ? Colors.green.withValues(alpha: 0.3)
+                ? Colors.green.withValues(alpha: 0.35)
                 : Colors.black.withValues(alpha: 0.12),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -107,26 +108,43 @@ class _GameCardWidgetState extends State<GameCardWidget>
         children: [
           Column(
             mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Big cute emoji
-              Text(
-                widget.card.emoji,
-                style: const TextStyle(fontSize: 48),
-              ),
-              const SizedBox(height: 6),
-              // Word label badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  borderRadius: BorderRadius.circular(12),
+              // Extra Large Illustration (FittedBox ensures maximum size without overflowing)
+              Expanded(
+                flex: 7,
+                child: Center(
+                  child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text(
+                      widget.card.emoji,
+                      style: const TextStyle(fontSize: 90),
+                    ),
+                  ),
                 ),
-                child: Text(
-                  widget.card.name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF37474F),
+              ),
+              const SizedBox(height: 2),
+              // Word label badge
+              Expanded(
+                flex: 3,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.card.name,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF263238),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -134,8 +152,8 @@ class _GameCardWidgetState extends State<GameCardWidget>
           ),
           if (widget.card.isMatched)
             Positioned(
-              top: 6,
-              right: 6,
+              top: 2,
+              right: 2,
               child: Container(
                 padding: const EdgeInsets.all(4),
                 decoration: const BoxDecoration(
@@ -154,7 +172,7 @@ class _GameCardWidgetState extends State<GameCardWidget>
     );
   }
 
-  // Card Back (Hidden, kid-friendly mystery card)
+  // Card Back (Hidden, playful candy rainbow theme)
   Widget _buildBackSide() {
     return Container(
       decoration: BoxDecoration(
@@ -162,18 +180,18 @@ class _GameCardWidgetState extends State<GameCardWidget>
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color(0xFFFFC1E3), // Soft candy pink
-            Color(0xFFB3E5FC), // Soft baby blue
+            Color(0xFFFF80AB), // Bright candy pink
+            Color(0xFF80D8FF), // Cheerful baby blue
           ],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: Colors.white,
           width: 3.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFF80AB).withValues(alpha: 0.25),
+            color: const Color(0xFFFF4081).withValues(alpha: 0.25),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
@@ -181,22 +199,22 @@ class _GameCardWidgetState extends State<GameCardWidget>
       ),
       child: Center(
         child: Container(
-          width: 44,
-          height: 44,
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.9),
+            color: Colors.white.withValues(alpha: 0.92),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.06),
-                blurRadius: 4,
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 6,
               ),
             ],
           ),
           child: const Center(
             child: Text(
               '⭐',
-              style: TextStyle(fontSize: 22),
+              style: TextStyle(fontSize: 26),
             ),
           ),
         ),

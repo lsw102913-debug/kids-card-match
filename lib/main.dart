@@ -4,10 +4,10 @@ import 'game_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  // Ensure pleasant portrait orientation for kids
+  // Lock to landscape mode for spacious and open gameplay
   SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
   runApp(const KidsCardMatchApp());
 }

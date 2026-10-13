@@ -4,6 +4,7 @@ enum CardCategory {
   animals,
   fruits,
   vehicles,
+  dinosaurs,
 }
 
 class CardItem {

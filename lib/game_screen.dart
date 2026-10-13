@@ -13,8 +13,8 @@ class GameScreen extends StatefulWidget {
 }
 
 class GameScreenState extends State<GameScreen> {
-  CardCategory _currentCategory = CardCategory.animals;
-  Difficulty _currentDifficulty = Difficulty.easy;
+  CardCategory _currentCategory = CardCategory.dinosaurs;
+  Difficulty _currentDifficulty = Difficulty.medium;
 
   List<CardItem> _cards = [];
   int? _firstFlippedIndex;
@@ -90,7 +90,8 @@ class GameScreenState extends State<GameScreen> {
           _isProcessing = false;
         });
 
-        _confettiController.blast();
+        // Spectacular celebration burst with praise banner
+        _confettiController.blast(message: '우와! ${card.name} 짝을 찾았어요! 🎉');
 
         // Check victory
         if (_matchedPairs == _currentDifficulty.pairCount) {
@@ -100,7 +101,7 @@ class GameScreenState extends State<GameScreen> {
         }
       } else {
         // MISMATCH -> Flip back after brief delay
-        Future.delayed(const Duration(milliseconds: 900), () {
+        Future.delayed(const Duration(milliseconds: 850), () {
           if (mounted) {
             setState(() {
               firstCard.isFaceUp = false;
@@ -129,30 +130,50 @@ class GameScreenState extends State<GameScreen> {
   void _openLevelPicker() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
         return Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                '난이도를 골라보아요! 🌟',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                '어떤 난이도로 도전해볼까요? 🌟',
+                style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 16),
-              ...Difficulty.values.map(
-                (d) => ListTile(
-                  title: Text(d.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                  trailing: _currentDifficulty == d ? const Icon(Icons.check_circle, color: Colors.pink) : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    startNewGame(difficulty: d);
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                alignment: WrapAlignment.center,
+                children: Difficulty.values.map(
+                  (d) {
+                    final isSelected = _currentDifficulty == d;
+                    return ActionChip(
+                      avatar: isSelected
+                          ? const Icon(Icons.check, size: 18, color: Colors.white)
+                          : null,
+                      label: Text(d.title),
+                      labelStyle: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isSelected ? Colors.white : const Color(0xFF37474F),
+                      ),
+                      backgroundColor: isSelected
+                          ? const Color(0xFFFF4081)
+                          : const Color(0xFFF0F4F8),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        startNewGame(difficulty: d);
+                      },
+                    );
                   },
-                ),
+                ).toList(),
               ),
+              const SizedBox(height: 10),
             ],
           ),
         );
@@ -162,52 +183,19 @@ class GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final themeInfo = GameData.themes.firstWhere((t) => t.category == _currentCategory);
-
     return Scaffold(
       backgroundColor: const Color(0xFFF9F7FE),
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(themeInfo.icon, style: const TextStyle(fontSize: 26)),
-            const SizedBox(width: 8),
-            Text(
-              '${themeInfo.title} 짝 맞추기',
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF37474F),
-                fontSize: 22,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 30, color: Color(0xFFFF4081)),
-            tooltip: '새 게임 시작',
-            onPressed: () => startNewGame(),
-          ),
-        ],
-      ),
       body: ConfettiOverlay(
         controller: _confettiController,
         child: SafeArea(
           child: Column(
             children: [
-              // Theme & Difficulty Bar
-              _buildControlPanel(),
-              const SizedBox(height: 8),
-              // Status Indicator (Moves, Pairs)
-              _buildStatusBar(),
-              const SizedBox(height: 12),
-              // Main Card Grid
+              // Landscape Sleek Top Bar
+              _buildLandscapeTopBar(),
+              // Main Card Grid maximized in landscape
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
                   child: _buildCardGrid(),
                 ),
               ),
@@ -218,101 +206,111 @@ class GameScreenState extends State<GameScreen> {
     );
   }
 
-  Widget _buildControlPanel() {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          // Theme Selectors
-          ...GameData.themes.map((theme) {
-            final isSelected = _currentCategory == theme.category;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: ChoiceChip(
-                label: Text('${theme.icon} ${theme.title}'),
-                labelStyle: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: isSelected ? Colors.white : const Color(0xFF546E7A),
-                ),
-                selected: isSelected,
-                selectedColor: const Color(0xFFFF80AB),
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                side: BorderSide(
-                  color: isSelected ? const Color(0xFFFF80AB) : const Color(0xFFE0E0E0),
-                ),
-                onSelected: (val) {
-                  if (val) startNewGame(category: theme.category);
-                },
-              ),
-            );
-          }),
-          const SizedBox(width: 8),
-          // Difficulty Selector Button
-          ActionChip(
-            avatar: const Text('🎮'),
-            label: Text(_currentDifficulty.title),
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF0277BD)),
-            backgroundColor: const Color(0xFFE1F5FE),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            onPressed: _openLevelPicker,
+  Widget _buildLandscapeTopBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStatusBar() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            Row(
-              children: [
-                const Text('🎯', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 6),
-                Text(
-                  '시도: $_moves 회',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF455A64),
+      child: Row(
+        children: [
+          // Theme Selectors (Scrollable)
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...GameData.themes.map((theme) {
+                    final isSelected = _currentCategory == theme.category;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 6),
+                      child: ChoiceChip(
+                        label: Text('${theme.icon} ${theme.title}'),
+                        labelStyle: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isSelected ? Colors.white : const Color(0xFF455A64),
+                        ),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFFFF80AB),
+                        backgroundColor: const Color(0xFFF5F7FA),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        side: BorderSide(
+                          color: isSelected ? const Color(0xFFFF80AB) : Colors.transparent,
+                        ),
+                        onSelected: (val) {
+                          if (val) startNewGame(category: theme.category);
+                        },
+                      ),
+                    );
+                  }),
+                  // Difficulty Selector Pill
+                  ActionChip(
+                    avatar: const Text('🎮'),
+                    label: Text(_currentDifficulty.title),
+                    labelStyle: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF0277BD),
+                    ),
+                    backgroundColor: const Color(0xFFE1F5FE),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    onPressed: _openLevelPicker,
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-            Container(height: 20, width: 1.5, color: const Color(0xFFECEFF1)),
-            Row(
-              children: [
-                const Text('⭐', style: TextStyle(fontSize: 20)),
-                const SizedBox(width: 6),
-                Text(
-                  '찾은 짝: $_matchedPairs / ${_currentDifficulty.pairCount}',
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFFE91E63),
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(width: 8),
+          // Status Pills (Moves & Matches)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(14),
             ),
-          ],
-        ),
+            child: Text(
+              '🎯 시도: $_moves',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFE65100),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFCE4EC),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              '⭐ 짝: $_matchedPairs / ${_currentDifficulty.pairCount}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFFC2185B),
+              ),
+            ),
+          ),
+          const SizedBox(width: 6),
+          // Restart button
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 26, color: Color(0xFFFF4081)),
+            tooltip: '새 게임 시작',
+            visualDensity: VisualDensity.compact,
+            onPressed: () => startNewGame(),
+          ),
+        ],
       ),
     );
   }
@@ -326,18 +324,18 @@ class GameScreenState extends State<GameScreen> {
         final availableHeight = constraints.maxHeight;
         final rowCount = (_cards.length / crossCount).ceil();
 
-        // Calculate aspect ratio that nicely fits the cards in the screen
-        final itemWidth = (availableWidth - (crossCount - 1) * 12) / crossCount;
-        final itemHeight = (availableHeight - (rowCount - 1) * 12) / rowCount;
-        final aspectRatio = (itemWidth / itemHeight).clamp(0.72, 1.15);
+        const spacing = 10.0;
+        final itemWidth = (availableWidth - (crossCount - 1) * spacing) / crossCount;
+        final itemHeight = (availableHeight - (rowCount - 1) * spacing) / rowCount;
+        final aspectRatio = (itemWidth / itemHeight).clamp(0.7, 1.4);
 
         return GridView.builder(
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _cards.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossCount,
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
             childAspectRatio: aspectRatio,
           ),
           itemBuilder: (context, index) {
