@@ -1,0 +1,83 @@
+name: Build & Release Android APK
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Android APK & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get Dependencies
+        run: flutter pub get
+
+      - name: Run Automated Tests
+        run: flutter test
+
+      - name: Build Android Release APK
+        run: flutter build apk --release
+
+      - name: Build Web Release
+        run: flutter build web --release
+
+      - name: Package Web Build
+        run: (cd build/web && zip -r ../../kids-card-match-web.zip .)
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload Web Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-release-zip
+          path: kids-card-match-web.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
+        with:
+          tag_name: v1.0.0
+          name: "Kids Card Match v1.0.0 (아기자기 같은 그림 찾기)"
+          body: |
+            ## 🎨 아기자기 같은 그림 찾기 안드로이드 앱 (v1.0.0)
+
+            4~5세 아이 맞춤 귀여운 그림 짝 맞추기 게임입니다!
+
+            ### ✨ 주요 기능
+            - 🐻 **3가지 테마**: 동물 친구들, 달콤 과일, 신나는 탈것
+            - 🌟 **3단계 난이도**: 새싹(4장), 꽃잎(6장), 나무(12장)
+            - 🎈 **즐거운 효과**: 3D 카드 뒤집기, 짝 맞춤 폭죽 파티클, 3성 축하 팝업
+            - 📱 **안드로이드 지원**: 스마트폰 및 태블릿 터치 최적화
+
+            ### 📲 다운로드 및 설치
+            - 아래 **`app-release.apk`** 파일을 다운로드하여 안드로이드 기기에 설치하시면 바로 플레이하실 수 있습니다.
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            kids-card-match-web.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
