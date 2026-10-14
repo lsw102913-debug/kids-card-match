@@ -99,15 +99,16 @@ class GameScreenState extends State<GameScreen> {
           _isProcessing = false;
         });
 
-        // 1) Read card name aloud cheerfully via TTS!
-        _ttsService.speakCardMatch(card.name);
-
-        // 2) Spectacular celebration burst with praise banner
-        _confettiController.blast(message: '우와! ${card.name}! 🎉');
+        // 1) Read card match praise cheerfully via TTS with varied phrase
+        _ttsService.speakCardMatch(card.name).then((spokenPhrase) {
+          if (mounted) {
+            _confettiController.blast(message: spokenPhrase);
+          }
+        });
 
         // Check victory
         if (_matchedPairs == _currentDifficulty.pairCount) {
-          Future.delayed(const Duration(milliseconds: 650), () {
+          Future.delayed(const Duration(milliseconds: 700), () {
             if (mounted) {
               _ttsService.speakVictory();
               _showVictoryDialog();
@@ -116,14 +117,15 @@ class GameScreenState extends State<GameScreen> {
         }
       } else {
         // MISMATCH!
-        // 1) Playful TTS voice for Hae-rin: "해린아 이건 아닌데??"
-        _ttsService.speakMismatch();
+        // 1) Playful TTS voice for Hae-rin with varied expressions
+        _ttsService.speakMismatch().then((spokenPhrase) {
+          if (mounted) {
+            _confettiController.showMismatch('$spokenPhrase 😜');
+          }
+        });
 
-        // 2) Show funny toast banner
-        _confettiController.showMismatch('해린아 이건 아닌데?? 😜');
-
-        // Flip back after brief delay
-        Future.delayed(const Duration(milliseconds: 1050), () {
+        // Flip back after brief delay (1150ms to allow gentle, clear speech)
+        Future.delayed(const Duration(milliseconds: 1150), () {
           if (mounted) {
             setState(() {
               firstCard.isFaceUp = false;
