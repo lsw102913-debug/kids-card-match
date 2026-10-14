@@ -29,7 +29,7 @@ class _GameCardWidgetState extends State<GameCardWidget>
       duration: const Duration(milliseconds: 340),
     );
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutBack),
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
     );
 
     if (widget.card.isFaceUp || widget.card.isMatched) {
@@ -124,24 +124,32 @@ class _GameCardWidgetState extends State<GameCardWidget>
           // Word label badge overlay at bottom
           Positioned(
             bottom: 4,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1.5),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.94),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
-                    blurRadius: 3,
+            left: 2,
+            right: 2,
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.94),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.08),
+                      blurRadius: 3,
+                    ),
+                  ],
+                ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    widget.card.name,
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF263238),
+                    ),
                   ),
-                ],
-              ),
-              child: Text(
-                widget.card.name,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF263238),
                 ),
               ),
             ),

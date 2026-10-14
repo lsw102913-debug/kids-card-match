@@ -4,7 +4,14 @@ import 'package:kids_card_match/game_screen.dart';
 import 'package:kids_card_match/models/game_data.dart';
 import 'package:kids_card_match/widgets/game_card_widget.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
   group('Zero-Clip Adaptive Layout Screen Tests', () {
     final screenSizes = [
       const Size(800, 360),   // Compact landscape phone

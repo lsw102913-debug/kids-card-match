@@ -202,7 +202,7 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
-                painter: _SpectacularConfettiPainter(_particles),
+                painter: _SpectacularConfettiPainter(List.of(_particles)),
               ),
             ),
           ),

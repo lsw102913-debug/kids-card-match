@@ -1,10 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'models/card_item.dart';
 import 'models/game_data.dart';
+import 'services/score_service.dart';
 import 'services/sound_service.dart';
 import 'services/tts_service.dart';
 import 'widgets/confetti_overlay.dart';
 import 'widgets/game_card_widget.dart';
+import 'widgets/leaderboard_dialog.dart';
 import 'widgets/victory_dialog.dart';
 
 class GameScreen extends StatefulWidget {
@@ -24,14 +27,21 @@ class GameScreenState extends State<GameScreen> {
   int _moves = 0;
   int _matchedPairs = 0;
 
+  // Stopwatch & Timer for clear time tracking
+  final Stopwatch _stopwatch = Stopwatch();
+  Timer? _ticker;
+  int _elapsedSeconds = 0;
+
   final ConfettiController _confettiController = ConfettiController();
   final TtsService _ttsService = TtsService();
   final SoundService _soundService = SoundService();
+  final ScoreService _scoreService = ScoreService();
 
   // Public getters for testing
   List<CardItem> get cards => _cards;
   int get moves => _moves;
   int get matchedPairs => _matchedPairs;
+  int get elapsedSeconds => _elapsedSeconds;
   bool get isGameOver => _matchedPairs == _currentDifficulty.pairCount && _cards.isNotEmpty;
   Difficulty get currentDifficulty => _currentDifficulty;
   CardCategory get currentCategory => _currentCategory;
@@ -45,12 +55,18 @@ class GameScreenState extends State<GameScreen> {
 
   @override
   void dispose() {
+    _ticker?.cancel();
+    _stopwatch.stop();
     _confettiController.dispose();
     _ttsService.stop();
     super.dispose();
   }
 
   void startNewGame({Difficulty? difficulty, CardCategory? category}) {
+    _ticker?.cancel();
+    _stopwatch.stop();
+    _stopwatch.reset();
+
     setState(() {
       if (difficulty != null) _currentDifficulty = difficulty;
       if (category != null) _currentCategory = category;
@@ -63,7 +79,21 @@ class GameScreenState extends State<GameScreen> {
       _isProcessing = false;
       _moves = 0;
       _matchedPairs = 0;
+      _elapsedSeconds = 0;
     });
+  }
+
+  void _startTimerIfNeeded() {
+    if (!_stopwatch.isRunning) {
+      _stopwatch.start();
+      _ticker = Timer.periodic(const Duration(milliseconds: 500), (t) {
+        if (mounted && _stopwatch.isRunning) {
+          setState(() {
+            _elapsedSeconds = _stopwatch.elapsedMilliseconds ~/ 1000;
+          });
+        }
+      });
+    }
   }
 
   void onCardTapped(int index) {
@@ -71,6 +101,9 @@ class GameScreenState extends State<GameScreen> {
     if (index < 0 || index >= _cards.length) return;
     final card = _cards[index];
     if (card.isMatched || card.isFaceUp) return;
+
+    // Start stopwatch on first interaction
+    _startTimerIfNeeded();
 
     // 1) Play cute bubble pop sound effect when card is tapped!
     _soundService.playCardTap();
@@ -108,12 +141,12 @@ class GameScreenState extends State<GameScreen> {
 
         // Check victory
         if (_matchedPairs == _currentDifficulty.pairCount) {
-          Future.delayed(const Duration(milliseconds: 700), () {
-            if (mounted) {
-              _ttsService.speakVictory();
-              _showVictoryDialog();
-            }
-          });
+          // Stop timer immediately
+          final clearTimeMs = _stopwatch.elapsedMilliseconds;
+          _stopwatch.stop();
+          _ticker?.cancel();
+
+          _handleGameVictory(clearTimeMs);
         }
       } else {
         // MISMATCH!
@@ -139,14 +172,41 @@ class GameScreenState extends State<GameScreen> {
     }
   }
 
-  void _showVictoryDialog() {
+  Future<void> _handleGameVictory(int clearTimeMs) async {
+    // Record clear time to leaderboard
+    final result = await _scoreService.recordClearTime(
+      difficulty: _currentDifficulty,
+      clearTimeMs: clearTimeMs,
+      moves: _moves,
+    );
+
+    Future.delayed(const Duration(milliseconds: 700), () {
+      if (mounted) {
+        _ttsService.speakVictory();
+        _showVictoryDialog(result);
+      }
+    });
+  }
+
+  void _showVictoryDialog(ScoreResult result) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => VictoryDialog(
         moves: _moves,
+        difficulty: _currentDifficulty,
+        scoreResult: result,
         onPlayAgain: () => startNewGame(),
         onChangeLevel: () => _openLevelPicker(),
+      ),
+    );
+  }
+
+  void _openLeaderboard() {
+    showDialog(
+      context: context,
+      builder: (ctx) => LeaderboardDialog(
+        initialDifficulty: _currentDifficulty,
       ),
     );
   }
@@ -205,6 +265,12 @@ class GameScreenState extends State<GameScreen> {
     );
   }
 
+  String _formatTimer(int seconds) {
+    final m = (seconds ~/ 60).toString().padLeft(2, '0');
+    final s = (seconds % 60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -232,7 +298,7 @@ class GameScreenState extends State<GameScreen> {
 
   Widget _buildLandscapeTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
@@ -243,98 +309,122 @@ class GameScreenState extends State<GameScreen> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Theme Selectors (Scrollable)
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  ...GameData.themes.map((theme) {
-                    final isSelected = _currentCategory == theme.category;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ChoiceChip(
-                        label: Text('${theme.icon} ${theme.title}'),
-                        labelStyle: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected ? Colors.white : const Color(0xFF455A64),
-                        ),
-                        selected: isSelected,
-                        selectedColor: const Color(0xFFFF80AB),
-                        backgroundColor: const Color(0xFFF5F7FA),
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        side: BorderSide(
-                          color: isSelected ? const Color(0xFFFF80AB) : Colors.transparent,
-                        ),
-                        onSelected: (val) {
-                          if (val) startNewGame(category: theme.category);
-                        },
-                      ),
-                    );
-                  }),
-                  // Difficulty Selector Pill
-                  ActionChip(
-                    avatar: const Text('🎮'),
-                    label: Text(_currentDifficulty.title),
-                    labelStyle: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0277BD),
-                    ),
-                    backgroundColor: const Color(0xFFE1F5FE),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                    onPressed: _openLevelPicker,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        child: Row(
+          children: [
+            // Theme Selectors
+            ...GameData.themes.map((theme) {
+              final isSelected = _currentCategory == theme.category;
+              return Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: ChoiceChip(
+                  label: Text('${theme.icon} ${theme.title}'),
+                  labelStyle: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: isSelected ? Colors.white : const Color(0xFF455A64),
                   ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          // Status Pills (Moves & Matches)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF3E0),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '🎯 시도: $_moves',
-              style: const TextStyle(
+                  selected: isSelected,
+                  selectedColor: const Color(0xFFFF80AB),
+                  backgroundColor: const Color(0xFFF5F7FA),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  side: BorderSide(
+                    color: isSelected ? const Color(0xFFFF80AB) : Colors.transparent,
+                  ),
+                  onSelected: (val) {
+                    if (val) startNewGame(category: theme.category);
+                  },
+                ),
+              );
+            }),
+            // Difficulty Selector Pill
+            ActionChip(
+              avatar: const Text('🎮'),
+              label: Text(_currentDifficulty.title),
+              labelStyle: const TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFFE65100),
+                color: Color(0xFF0277BD),
+              ),
+              backgroundColor: const Color(0xFFE1F5FE),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              onPressed: _openLevelPicker,
+            ),
+            const SizedBox(width: 8),
+
+            // Timer Pill
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFE0F2F1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '⏱️ ${_formatTimer(_elapsedSeconds)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF00796B),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFCE4EC),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              '⭐ 짝: $_matchedPairs / ${_currentDifficulty.pairCount}',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFFC2185B),
+            const SizedBox(width: 6),
+
+            // Status Pills (Moves & Matches)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF3E0),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '🎯 시도: $_moves',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFE65100),
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 4),
-          // Restart button
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 24, color: Color(0xFFFF4081)),
-            tooltip: '새 게임 시작',
-            visualDensity: VisualDensity.compact,
-            onPressed: () => startNewGame(),
-          ),
-        ],
+            const SizedBox(width: 6),
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFCE4EC),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '⭐ 짝: $_matchedPairs / ${_currentDifficulty.pairCount}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFFC2185B),
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+
+            // Leaderboard button
+            IconButton(
+              icon: const Icon(Icons.emoji_events_rounded, size: 22, color: Color(0xFFFFB300)),
+              tooltip: '명예의 전당 (순위표)',
+              visualDensity: VisualDensity.compact,
+              onPressed: _openLeaderboard,
+            ),
+
+            // Restart button
+            IconButton(
+              icon: const Icon(Icons.refresh_rounded, size: 22, color: Color(0xFFFF4081)),
+              tooltip: '새 게임 시작',
+              visualDensity: VisualDensity.compact,
+              onPressed: () => startNewGame(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -355,6 +445,11 @@ class GameScreenState extends State<GameScreen> {
         final totalSpacingH = (cols - 1) * spacing;
         final totalSpacingV = (rows - 1) * spacing;
 
+        // Guard against zero / tiny constraints
+        if (availW <= totalSpacingH + 10 || availH <= totalSpacingV + 10) {
+          return const SizedBox.shrink();
+        }
+
         final rawCardW = (availW - totalSpacingH) / cols;
         final rawCardH = (availH - totalSpacingV) / rows;
 
@@ -362,7 +457,7 @@ class GameScreenState extends State<GameScreen> {
         double targetCardH = rawCardH;
 
         const maxAspect = 1.05;
-        const minAspect = 0.55;
+        const minAspect = 0.50;
 
         if (targetCardW / targetCardH > maxAspect) {
           targetCardW = targetCardH * maxAspect;
@@ -370,9 +465,13 @@ class GameScreenState extends State<GameScreen> {
           targetCardH = targetCardW / minAspect;
         }
 
+        // Keep dimensions safely clamped
+        targetCardW = targetCardW.clamp(12.0, availW);
+        targetCardH = targetCardH.clamp(12.0, availH);
+
         final gridWidth = (targetCardW * cols) + totalSpacingH;
         final gridHeight = (targetCardH * rows) + totalSpacingV;
-        final childAspect = targetCardW / targetCardH;
+        final childAspect = (targetCardW / targetCardH).clamp(0.40, 1.30);
 
         return Center(
           child: SizedBox(

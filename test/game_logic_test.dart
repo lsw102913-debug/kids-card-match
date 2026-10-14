@@ -4,7 +4,14 @@ import 'package:kids_card_match/models/card_item.dart';
 import 'package:kids_card_match/models/game_data.dart';
 import 'package:kids_card_match/game_screen.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
   group('GameData & Deck Generation Tests', () {
     test('Easy difficulty generates 4 cards (2 pairs)', () {
       final deck = GameData.generateDeck(
