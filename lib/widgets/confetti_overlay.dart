@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 
@@ -41,21 +42,48 @@ class ConfettiOverlay extends StatefulWidget {
 
 class ConfettiController extends ChangeNotifier {
   bool _isActive = false;
+  bool _isMismatch = false;
   String? _toastMessage;
+  Timer? _mismatchTimer;
 
   bool get isActive => _isActive;
+  bool get isMismatch => _isMismatch;
   String? get toastMessage => _toastMessage;
 
   void blast({String? message}) {
+    _mismatchTimer?.cancel();
+    _isMismatch = false;
     _isActive = true;
     _toastMessage = message ?? '우와! 짝을 찾았어요! 🎉';
     notifyListeners();
   }
 
-  void stop() {
+  void showMismatch(String message) {
+    _mismatchTimer?.cancel();
     _isActive = false;
+    _isMismatch = true;
+    _toastMessage = message;
+    notifyListeners();
+
+    _mismatchTimer = Timer(const Duration(milliseconds: 1400), () {
+      _isMismatch = false;
+      _toastMessage = null;
+      notifyListeners();
+    });
+  }
+
+  void stop() {
+    _mismatchTimer?.cancel();
+    _isActive = false;
+    _isMismatch = false;
     _toastMessage = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _mismatchTimer?.cancel();
+    super.dispose();
   }
 }
 
@@ -105,26 +133,21 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
   void _spawnSpectacularParticles() {
     _particles.clear();
 
-    // Spawn 140 particles from dual cannons (Left & Right) + Center Burst
     for (int i = 0; i < 140; i++) {
-      // 0: Left cannon, 1: Right cannon, 2: Center firework
       final originType = i % 3;
       double startX;
       double startY;
       double baseAngle;
 
       if (originType == 0) {
-        // Bottom Left Cannon -> Shoots Up-Right
         startX = 0.15;
         startY = 0.9;
         baseAngle = -pi / 3 + (_rng.nextDouble() - 0.5) * 0.8;
       } else if (originType == 1) {
-        // Bottom Right Cannon -> Shoots Up-Left
         startX = 0.85;
         startY = 0.9;
         baseAngle = -2 * pi / 3 + (_rng.nextDouble() - 0.5) * 0.8;
       } else {
-        // Center Firework Burst
         startX = 0.5;
         startY = 0.45;
         baseAngle = _rng.nextDouble() * 2 * pi;
@@ -154,8 +177,8 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
     for (var p in _particles) {
       p.x += p.vx;
       p.y += p.vy;
-      p.vy += 0.00035; // gravity pull down
-      p.vx *= 0.99;    // air resistance
+      p.vy += 0.00035;
+      p.vx *= 0.99;
       p.rotation += p.rotationSpeed;
     }
   }
@@ -169,10 +192,13 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
 
   @override
   Widget build(BuildContext context) {
+    final showMismatchToast = widget.controller.isMismatch && widget.controller.toastMessage != null;
+    final showMatchToast = _animController.isAnimating && widget.controller.toastMessage != null;
+
     return Stack(
       children: [
         widget.child,
-        if (_animController.isAnimating) ...[
+        if (_animController.isAnimating)
           Positioned.fill(
             child: IgnorePointer(
               child: CustomPaint(
@@ -180,48 +206,90 @@ class _ConfettiOverlayState extends State<ConfettiOverlay>
               ),
             ),
           ),
-          // Cheerful praise floating banner
-          if (widget.controller.toastMessage != null)
-            Positioned(
-              top: 50,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 300),
-                  builder: (context, val, child) {
-                    return Transform.scale(
-                      scale: val,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.95),
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: const Color(0xFFFF4081), width: 3),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.pink.withValues(alpha: 0.35),
-                              blurRadius: 16,
-                              offset: const Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          widget.controller.toastMessage!,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFFF4081),
+
+        // Cheerful Match Praise Floating Banner
+        if (showMatchToast)
+          Positioned(
+            top: 48,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 260),
+                builder: (context, val, child) {
+                  return Transform.scale(
+                    scale: val,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.96),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFFF4081), width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.pink.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
                           ),
+                        ],
+                      ),
+                      child: Text(
+                        widget.controller.toastMessage!,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFFF4081),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             ),
-        ],
+          ),
+
+        // Playful Mismatch Banner for Hae-rin
+        if (showMismatchToast)
+          Positioned(
+            top: 48,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.0, end: 1.0),
+                duration: const Duration(milliseconds: 260),
+                builder: (context, val, child) {
+                  return Transform.scale(
+                    scale: val,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF8E1),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: const Color(0xFFFF9800), width: 3),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withValues(alpha: 0.3),
+                            blurRadius: 14,
+                            offset: const Offset(0, 5),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        widget.controller.toastMessage!,
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFFE65100),
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -247,10 +315,8 @@ class _SpectacularConfettiPainter extends CustomPainter {
       canvas.rotate(p.rotation);
 
       if (p.shape == 0) {
-        // Circle sparkle
         canvas.drawCircle(Offset.zero, p.size / 2, paint);
       } else if (p.shape == 1) {
-        // Ribbon / rectangle
         canvas.drawRRect(
           RRect.fromRectAndRadius(
             Rect.fromCenter(center: Offset.zero, width: p.size * 1.2, height: p.size * 0.5),
@@ -259,10 +325,8 @@ class _SpectacularConfettiPainter extends CustomPainter {
           paint,
         );
       } else if (p.shape == 2) {
-        // 5-point Star
         _drawStar(canvas, p.size / 2, paint);
       } else {
-        // Heart
         _drawHeart(canvas, p.size / 2, paint);
       }
 

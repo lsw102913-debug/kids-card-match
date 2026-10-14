@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'models/card_item.dart';
 import 'models/game_data.dart';
+import 'services/sound_service.dart';
 import 'services/tts_service.dart';
 import 'widgets/confetti_overlay.dart';
 import 'widgets/game_card_widget.dart';
@@ -25,6 +26,7 @@ class GameScreenState extends State<GameScreen> {
 
   final ConfettiController _confettiController = ConfettiController();
   final TtsService _ttsService = TtsService();
+  final SoundService _soundService = SoundService();
 
   // Public getters for testing
   List<CardItem> get cards => _cards;
@@ -70,6 +72,9 @@ class GameScreenState extends State<GameScreen> {
     final card = _cards[index];
     if (card.isMatched || card.isFaceUp) return;
 
+    // 1) Play cute bubble pop sound effect when card is tapped!
+    _soundService.playCardTap();
+
     setState(() {
       card.isFaceUp = true;
     });
@@ -110,8 +115,15 @@ class GameScreenState extends State<GameScreen> {
           });
         }
       } else {
-        // MISMATCH -> Flip back after brief delay
-        Future.delayed(const Duration(milliseconds: 850), () {
+        // MISMATCH!
+        // 1) Playful TTS voice for Hae-rin: "해린아 이건 아닌데??"
+        _ttsService.speakMismatch();
+
+        // 2) Show funny toast banner
+        _confettiController.showMismatch('해린아 이건 아닌데?? 😜');
+
+        // Flip back after brief delay
+        Future.delayed(const Duration(milliseconds: 1050), () {
           if (mounted) {
             setState(() {
               firstCard.isFaceUp = false;
@@ -344,14 +356,11 @@ class GameScreenState extends State<GameScreen> {
         final rawCardW = (availW - totalSpacingH) / cols;
         final rawCardH = (availH - totalSpacingV) / rows;
 
-        // Ideal playing card aspect ratio (width / height) is between 0.65 and 0.95
-        // If rawCardW is too wide compared to rawCardH (cards would be too fat),
-        // we constrain the container width and center it horizontally!
         double targetCardW = rawCardW;
         double targetCardH = rawCardH;
 
-        const maxAspect = 1.05; // Never wider than square
-        const minAspect = 0.55; // Never narrower than 0.55
+        const maxAspect = 1.05;
+        const minAspect = 0.55;
 
         if (targetCardW / targetCardH > maxAspect) {
           targetCardW = targetCardH * maxAspect;
